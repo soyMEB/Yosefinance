@@ -1,104 +1,96 @@
 import streamlit as st
 import pandas as pd
-import random
-from datetime import datetime
+import yfinance as yf
 
 # --- CONFIGURACIÓN DE LA PÁGINA ---
-st.set_page_config(page_title="Finanzas Desde Cero", page_icon="📈", layout="centered")
+st.set_page_config(page_title="Finanzas Vzla Real", page_icon="🇻🇪", layout="centered")
 
-# Estilos CSS para que parezca una app móvil limpia
+# Estilos visuales
 st.markdown("""
     <style>
-    .stButton>button { width: 100%; border-radius: 20px; }
-    .big-font { font-size:20px !important; font-weight: bold; }
-    .stMetric { background-color: #f0f2f6; padding: 10px; border-radius: 10px; }
+    .stMetric { background-color: #f0f2f6; padding: 15px; border-radius: 10px; border: 1px solid #dcdcdc; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- MENÚ DE NAVEGACIÓN (SIDEBAR) ---
-st.sidebar.title("🚀 Navegación")
-opcion = st.sidebar.radio("Ir a:", ["Inicio & Mercado", "Noticias Flash", "Academia (Aprende)", "Modo Venezuela"])
+# --- FUNCIÓN PARA OBTENER DATOS REALES ---
+def obtener_datos(simbolo):
+    try:
+        ticker = yf.Ticker(simbolo)
+        hist = ticker.history(period="1d")
+        if not hist.empty:
+            precio_actual = hist['Close'].iloc[-1]
+            precio_ayer = hist['Open'].iloc[0]
+            cambio = ((precio_actual - precio_ayer) / precio_ayer) * 100
+            return precio_actual, cambio
+    except:
+        return 0, 0
+    return 0, 0
 
-# --- DATOS SIMULADOS (Para el prototipo) ---
-# En una versión avanzada, aquí conectaríamos con APIs reales como Yahoo Finance o CoinGecko
-btc_price = 42000 + random.randint(-500, 500)
-eth_price = 2200 + random.randint(-50, 50)
-sp500 = 4700 + random.randint(-20, 20)
+# --- MENÚ LATERAL ---
+st.sidebar.title("🚀 Menú")
+opcion = st.sidebar.radio("Ir a:", ["Mercado en Vivo", "Academia Cripto", "Estrategia Venezuela"])
 
-# --- SECCIÓN 1: INICIO & MERCADO ---
-if opcion == "Inicio & Mercado":
-    st.title("📊 Mercado al Día")
-    st.markdown("Tu visor rápido de cómo se mueve el dinero hoy.")
-    
+# --- SECCIÓN 1: MERCADO EN VIVO ---
+if opcion == "Mercado en Vivo":
+    st.title("📈 Mercado en Tiempo Real")
+    st.markdown("Precios actualizados directamente desde la bolsa global.")
+
+    # Botón para refrescar datos manualmente
+    if st.button('🔄 Actualizar Precios'):
+        st.cache_data.clear()
+
+    # Obtener datos reales
+    btc_precio, btc_cambio = obtener_datos("BTC-USD")
+    eth_precio, eth_cambio = obtener_datos("ETH-USD")
+    sp500_precio, sp500_cambio = obtener_datos("^GSPC") # S&P 500
+
     col1, col2 = st.columns(2)
     with col1:
-        st.metric(label="Bitcoin (BTC)", value=f"${btc_price:,}", delta=f"{random.choice(['+','-'])}{random.randint(1,5)}%")
+        st.metric("Bitcoin (BTC)", f"${btc_precio:,.2f}", f"{btc_cambio:.2f}%")
     with col2:
-        st.metric(label="S&P 500", value=f"${sp500}", delta=f"{random.choice(['+','-'])}{random.randint(0,2)}%")
+        st.metric("Ethereum (ETH)", f"${eth_precio:,.2f}", f"{eth_cambio:.2f}%")
 
-    st.subheader("💡 ¿Por qué se mueve hoy?")
-    st.info("El mercado reacciona hoy a los datos de inflación en EE.UU. Cuando la inflación baja, las acciones suelen subir.")
+    st.markdown("---")
+    st.subheader("🇺🇸 Bolsa Tradicional")
+    st.metric("S&P 500 (Economía EE.UU.)", f"${sp500_precio:,.2f}", f"{sp500_cambio:.2f}%")
 
-# --- SECCIÓN 2: NOTICIAS FLASH ---
-elif opcion == "Noticias Flash":
-    st.title("📰 Lo que mueve la aguja")
-    st.markdown("Resumen curado para entender el ruido mundial.")
+    st.info("💡 Nota: Si ves el Bitcoin en rojo, suele ser buen momento para comprar 'en rebaja' si vas a largo plazo.")
 
-    noticias = [
-        {"titulo": "La SEC aprueba nuevo ETF", "impacto": "Alto", "resumen": "Esto permite que fondos tradicionales inviertan en Bitcoin, trayendo más dinero al mercado."},
-        {"titulo": "Inflación en Europa cede", "impacto": "Medio", "resumen": "Buenas noticias para el Euro. Podría hacer que el Dólar baje ligeramente."},
-        {"titulo": "Halving de Bitcoin se acerca", "impacto": "Muy Alto", "resumen": "Históricamente, este evento reduce la oferta de Bitcoin y sube el precio."}
-    ]
-
-    for n in noticias:
-        with st.expander(f"{n['titulo']} (Impacto: {n['impacto']})"):
-            st.write(n['resumen'])
-            st.caption("Fuente: Agregador Global")
-
-# --- SECCIÓN 3: ACADEMIA (APRENDE) ---
-elif opcion == "Academia (Aprende)":
-    st.title("🎓 Escuela de Inversión")
-    st.markdown("Aprende paso a paso sin tecnicismos.")
-
-    tab1, tab2, tab3 = st.tabs(["Nivel 1: Básico", "Nivel 2: Cripto", "Nivel 3: Bolsa"])
-
-    with tab1:
-        st.header("Conceptos Fundamentales")
-        st.markdown("""
-        **1. ¿Qué es la inflación?**
-        Es el impuesto invisible. Si tienes 100 Bolívares hoy, mañana compran menos. Invertir es la única forma de protegerte.
-        
-        **2. Interés Compuesto**
-        Es ganar intereses sobre tus intereses. Es la bola de nieve que te hace rico con el tiempo.
-        """)
+# --- SECCIÓN 2: ACADEMIA ---
+elif opcion == "Academia Cripto":
+    st.title("🎓 Aprende Mientras Ganas")
     
-    with tab2:
-        st.header("Mundo Blockchain")
-        st.markdown("""
-        **¿Qué es una Wallet?**
-        No es una cuenta de banco. Es como tu billetera física, tú eres el único dueño. Si pierdes las llaves (frase semilla), pierdes el dinero.
-        
-        **Stablecoins (USDT/USDC):**
-        Criptomonedas que valen siempre $1. Son tu refugio digital contra la devaluación local.
+    with st.expander("¿Qué mueve el precio hoy?"):
+        st.write("""
+        Los precios que ves en la pantalla principal se mueven por **Oferta y Demanda**:
+        1. Si hay malas noticias (guerras, regulaciones), la gente vende y el precio baja 📉.
+        2. Si hay adopción (ej. BlackRock compra Bitcoin), la gente compra y el precio sube 📈.
         """)
 
-# --- SECCIÓN 4: MODO VENEZUELA ---
-elif opcion == "Modo Venezuela":
-    st.title("🇻🇪 Ruta Venezolana")
-    st.markdown("Estrategias específicas para operar desde aquí.")
+    with st.expander("Diccionario Básico"):
+        st.markdown("""
+        * **Bull Market (Toro):** Cuando todo sube. El toro ataca hacia arriba.
+        * **Bear Market (Oso):** Cuando todo baja. El oso ataca hacia abajo.
+        * **HODL:** Comprar y no vender, pase lo que pase.
+        """)
 
-    st.warning("⚠️ Regla de Oro: Nunca inviertas dinero que necesites para comer la próxima semana.")
+# --- SECCIÓN 3: ESTRATEGIA VENEZUELA ---
+elif opcion == "Estrategia Venezuela":
+    st.title("🇻🇪 Desde Venezuela")
+    st.subheader("Calculadora de Arbitraje Simple")
+    st.markdown("Calcula el valor real de tu cambio.")
 
-    st.subheader("El Ciclo del Dinero (Ejemplo)")
-    st.code("Bolívares -> Binance P2P (Comprar USDT) -> Inversión (Bitcoin/Acciones)")
+    monto_bs = st.number_input("Tengo esta cantidad de Bolívares:", value=1000.0)
+    tasa_dolar = st.number_input("Precio del Dólar (P2P/Paralelo):", value=60.0)
 
-    st.subheader("Herramientas Útiles")
-    st.markdown("""
-    * **Binance P2P:** Para cambiar Bs a Dólares Digitales.
-    * **El Dorado / Reserve:** Billeteras fáciles para pagos rápidos.
-    * **Interactive Brokers:** (Nivel Avanzado) Para acciones de EE.UU., aunque requiere más papeleo desde Vzla.
-    """)
+    if tasa_dolar > 0:
+        dolares = monto_bs / tasa_dolar
+        st.success(f"Esto equivale a: **${dolares:.2f} USDT**")
+        
+        st.write("Si inviertes estos USDT en Bitcoin y sube un 10%:")
+        ganancia = dolares * 1.10
+        st.metric(label="Futuro Potencial", value=f"${ganancia:.2f} USDT")
 
 # --- PIE DE PÁGINA ---
 st.markdown("---")
-st.caption("Desarrollado para educar y crecer. No es asesoramiento financiero profesional.")
+st.caption("Datos provistos por Yahoo Finance. Desarrollado con Streamlit.")
