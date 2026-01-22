@@ -2,103 +2,121 @@ import streamlit as st
 import pandas as pd
 import yfinance as yf
 
-# --- CONFIGURACIÓN DE LA PÁGINA ---
-st.set_page_config(page_title="Finanzas Vzla Pro", page_icon="🇻🇪", layout="centered")
+# --- CONFIGURACIÓN DE PÁGINA ---
+st.set_page_config(page_title="App Financiera Vzla", page_icon="🇻🇪", layout="centered")
 
-# --- ESTILOS VISUALES ---
+# --- ESTILOS (Para que se vea bien en celular) ---
 st.markdown("""
     <style>
-    .stMetric { background-color: #f0f2f6; padding: 10px; border-radius: 10px; }
+    .stMetric { background-color: #f0f2f6; border-radius: 10px; padding: 10px; }
+    h1, h2, h3 { color: #0e1117; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- FUNCIÓN: OBTENER DATOS CON HISTORIA ---
-def obtener_datos(simbolo, periodo="1mo"):
+# --- FUNCIONES INTERNAS (El motor de la app) ---
+def obtener_historia(simbolo, periodo="1mo"):
+    """Descarga datos reales de Yahoo Finance"""
     try:
         ticker = yf.Ticker(simbolo)
-        # Traemos la historia completa según el periodo elegido
         hist = ticker.history(period=period)
+        # Si descarga datos vacíos, devolvemos 'None' para evitar errores
+        if hist.empty:
+            return None, 0, 0
         
-        if not hist.empty:
-            precio_actual = hist['Close'].iloc[-1]
-            # Calculamos el cambio respecto a la apertura del último día
-            precio_ayer = hist['Open'].iloc[-1] 
-            cambio = ((precio_actual - precio_ayer) / precio_ayer) * 100
-            return precio_actual, cambio, hist['Close']
+        precio_actual = hist['Close'].iloc[-1]
+        precio_ayer = hist['Open'].iloc[-1]
+        cambio = ((precio_actual - precio_ayer) / precio_ayer) * 100
+        return hist['Close'], precio_actual, cambio
     except:
-        return 0, 0, pd.Series()
-    return 0, 0, pd.Series()
+        return None, 0, 0
 
-# --- SIDEBAR (MENÚ) ---
-st.sidebar.title("🚀 Navegación")
-opcion = st.sidebar.radio("Menú:", ["Mercado & Gráficos", "Academia", "Calculadora Vzla"])
+# --- BARRA LATERAL (Navegación) ---
+st.sidebar.title("🇻🇪 Finanzas Vzla")
+st.sidebar.write("Tu centro de control financiero.")
 
-# Selector de tiempo en el menú lateral
-st.sidebar.markdown("---")
-st.sidebar.subheader("📅 Periodo de Tiempo")
-periodo_seleccionado = st.sidebar.selectbox("Ver historia de:", ["1d", "5d", "1mo", "6mo", "1y", "ytd"], index=2)
-# 1d=1 día, 1mo=1 mes, 1y=1 año, ytd=lo que va de año
+opcion = st.sidebar.radio("Menú Principal:", 
+    ["Mercado & Gráficos", "Noticias Flash", "Academia", "Calculadora P2P"])
 
-# --- SECCIÓN 1: MERCADO & GRÁFICOS ---
+# Filtro de tiempo (Solo aparece en la sección de mercado)
 if opcion == "Mercado & Gráficos":
-    st.title("📊 Análisis de Tendencia")
-    
-    # --- BITCOIN ---
-    st.subheader("Bitcoin (BTC)")
-    btc_precio, btc_cambio, btc_hist = obtener_datos("BTC-USD", periodo_seleccionado)
-    
-    col1, col2 = st.columns([1, 2]) # Columna 1 pequeña (dato), Columna 2 grande (gráfico)
-    with col1:
-        st.metric("Precio", f"${btc_precio:,.2f}", f"{btc_cambio:.2f}%")
-        if btc_cambio > 0:
-            st.success("Tendencia Alcista 🚀")
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("📅 Tiempo del Gráfico")
+    periodo = st.sidebar.selectbox("Ver:", ["1d", "5d", "1mo", "6mo", "1y"], index=2)
+else:
+    periodo = "1mo" # Valor por defecto para que no falle
+
+# --- SECCIÓN 1: MERCADO Y GRÁFICOS ---
+if opcion == "Mercado & Gráficos":
+    st.title("📈 Mercado en Vivo")
+    st.caption(f"Mostrando datos de: {periodo}")
+
+    # Pestañas para organizar mejor en el celular
+    tab1, tab2 = st.tabs(["Criptomonedas", "Bolsa USA"])
+
+    with tab1:
+        st.subheader("Bitcoin (BTC)")
+        hist_btc, precio_btc, cambio_btc = obtener_historia("BTC-USD", periodo)
+        
+        # Mostramos el precio
+        st.metric("Precio Actual", f"${precio_btc:,.2f}", f"{cambio_btc:.2f}%")
+        
+        # Mostramos el gráfico (Validamos que existan datos)
+        if hist_btc is not None:
+            st.line_chart(hist_btc)
         else:
-            st.error("Tendencia Bajista 🔻")
-    with col2:
-        # Aquí pintamos el gráfico de línea
-        st.line_chart(btc_hist)
+            st.warning("⏳ Cargando gráfico o error de conexión...")
 
-    st.markdown("---")
+    with tab2:
+        st.subheader("S&P 500 (Economía Global)")
+        hist_sp, precio_sp, cambio_sp = obtener_historia("^GSPC", periodo)
+        
+        st.metric("Precio Actual", f"${precio_sp:,.2f}", f"{cambio_sp:.2f}%")
+        
+        if hist_sp is not None:
+            st.line_chart(hist_sp)
+        else:
+            st.warning("⏳ Cargando gráfico o error de conexión...")
 
-    # --- S&P 500 ---
-    st.subheader("S&P 500 (Economía Global)")
-    sp_precio, sp_cambio, sp_hist = obtener_datos("^GSPC", periodo_seleccionado)
+# --- SECCIÓN 2: NOTICIAS (Regresaron!) ---
+elif opcion == "Noticias Flash":
+    st.title("📰 Lo Importante Hoy")
     
-    col3, col4 = st.columns([1, 2])
-    with col3:
-        st.metric("Precio", f"${sp_precio:,.2f}", f"{sp_cambio:.2f}%")
-    with col4:
-        st.line_chart(sp_hist)
+    noticias = [
+        {"titulo": "Bitcoin y el Halving", "tipo": "Cripto", "info": "El evento que reduce la oferta de Bitcoin suele aumentar su precio a largo plazo."},
+        {"titulo": "Inflación en Dólares", "tipo": "Economía", "info": "El dólar también pierde valor. Mantener efectivo quieto es perder poder de compra."},
+        {"titulo": "USDT en Venezuela", "tipo": "Local", "info": "El uso de USDT supera al efectivo en muchas transacciones comerciales grandes."}
+    ]
 
-# --- SECCIÓN 2: ACADEMIA ---
+    for n in noticias:
+        with st.expander(f"{n['tipo']} | {n['titulo']}"):
+            st.write(n['info'])
+
+# --- SECCIÓN 3: ACADEMIA ---
 elif opcion == "Academia":
-    st.title("🎓 Aprende a Leer Gráficos")
-    
-    st.info("💡 **Tip de Inversor:** No mires el precio minuto a minuto. Mira la tendencia de 1 mes o 6 meses.")
-    
+    st.title("🎓 Aprende a Invertir")
     st.markdown("""
-    ### ¿Qué buscar en el gráfico?
+    ### Conceptos Clave
     
-    1.  **Picos Altos (Techo):** Si el precio toca un punto alto y cae varias veces, se llama "Resistencia". Es difícil que suba más de ahí.
-    2.  **Picos Bajos (Suelo):** Si el precio baja y rebota hacia arriba, se llama "Soporte". Es buen momento para comprar.
-    3.  **Tendencia:** ¿La línea va de la esquina inferior izquierda a la superior derecha? Es alcista (Bullish).
+    **1. Volatilidad:**
+    Es qué tanto sube y baja el precio. 
+    * *Cripto:* Alta volatilidad (riesgo alto, ganancia alta).
+    * *Bonos:* Baja volatilidad (seguridad, ganancia baja).
+    
+    **2. Diversificación:**
+    "No poner todos los huevos en la misma canasta". Si el Bitcoin baja, quizás tus acciones suban.
     """)
 
-# --- SECCIÓN 3: CALCULADORA VZLA ---
-elif opcion == "Calculadora Vzla":
-    st.title("🇻🇪 Calculadora P2P")
-    st.write("Convierte tus Bolívares a Inversión Real.")
-    
-    bs = st.number_input("Bolívares a invertir:", value=1000)
-    tasa = st.number_input("Tasa (BCV o Paralelo):", value=60.0)
+# --- SECCIÓN 4: CALCULADORA ---
+elif opcion == "Calculadora P2P":
+    st.title("🧮 Calculadora de Cambio")
+    st.write("Herramienta rápida para arbitraje.")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        bs = st.number_input("Tengo Bolívares:", value=1000)
+    with col2:
+        tasa = st.number_input("Tasa de Cambio:", value=60.0)
     
     if tasa > 0:
-        dolares = bs / tasa
-        st.info(f"Tienes **${dolares:.2f}** de capital inicial.")
-        
-        st.write("---")
-        st.write("📉 **Meta de Ganancia:**")
-        meta = st.slider("¿Cuánto quieres ganar (%)?", 5, 100, 20)
-        
-        ganancia_esperada = dolares * (1 + meta/100)
-        st.success(f"Si inviertes y logras un +{meta}%, tendrás: **${ganancia_esperada:.2f}**")
+        res = bs / tasa
+        st.success(f"Son: **${res:.2f} USDT**")
